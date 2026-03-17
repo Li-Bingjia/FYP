@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb9d5de0c08e0214187323ac52941ee4, type: 3}
+  m_Name: NPC_1Dialogue
+  m_EditorClassIdentifier: 
+  npcName: Man
+  npcPortrait: {fileID: 21300000, guid: 8720cc7c479f3af4598786a78836c99d, type: 3}
+  dialogueLines:
+  - Hi
+  - Can you help me?
+  - Thanks
+  - I know you can help
+  - Oh...ok
+  - Maybe next time
+  - ' Luck finding those items'
+  - Thank you
+  autoProgressLines: 010000000000
+  endDialogueLines: 0000000100010101
+  autoProgressDelay: 1.5
+  typingSpeed: 0.05
+  voiceSound: {fileID: 8300000, guid: 6122f1d58e66b614f886d0cab793d2c7, type: 3}
+  voicePitch: 1
+  choices:
+  - dialogueIndex: 1
+    choices:
+    - Yes
+    - No
+    nextDialogueIndices: 0200000004000000
+    givesQuest: 0100
+  questInProgressIndex: 6
+  questCompletedIndex: 7
+  quest: {fileID: 11400000, guid: 37296fed020bb4742b7056eacb9a14f2, type: 2}
