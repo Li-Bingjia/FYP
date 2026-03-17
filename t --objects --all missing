@@ -1,0 +1,77 @@
+# =============================================
+# Gitattributes for Unity + Git LFS (optimized 2026)
+
+# 先定義宏屬性，方便重用（來自 git-lfs 官方建議）
+[attr]lfs           filter=lfs diff=lfs merge=lfs -text
+[attr]unity-yaml    text merge=unityyamlmerge eol=lf linguist-generated
+# Unity YAML / 文字資產 → 文字合併 + LF 換行（超重要！避免亂碼/衝突）
+*.anim          [unity-yaml]
+*.controller    [unity-yaml]
+*.mat           [unity-yaml]
+*.physicMaterial  [unity-yaml]
+*.physicsMaterial2D [unity-yaml]
+*.prefab        [unity-yaml]
+*.unity         [unity-yaml]
+*.mask          [unity-yaml]
+*.overrideController [unity-yaml]
+*.asset         text merge=unityyamlmerge eol=lf   # 有些 .asset 是 YAML，有些是 binary，視情況可移到 LFS
+# 大型二進位檔 → 全部走 Git LFS（避免 repo 超過 100MB 限制）
+# 圖像 / 貼圖
+*.png           [lfs]
+*.jpg           [lfs]
+*.jpeg          [lfs]
+*.tga           [lfs]
+*.tif           [lfs]
+*.tiff          [lfs]
+*.exr           [lfs]
+*.hdr           [lfs]   # HDR 常很大，加進去
+# 模型 / 3D 檔（你的問題檔 .obj 已包含）
+*.obj           [lfs]
+*.OBJ           [lfs]   # 大小寫都處理
+*.fbx           [lfs]
+*.FBX           [lfs]
+*.blend         [lfs]
+*.max           [lfs]
+*.ma            [lfs]
+*.mb            [lfs]
+*.dae           [lfs]
+*.glb           [lfs]
+*.gltf          [lfs]
+# 音效 / 音樂
+*.mp3           [lfs]
+*.wav           [lfs]
+*.ogg           [lfs]
+*.aiff          [lfs]
+*.aif           [lfs]
+*.m4a           [lfs]
+# 影片
+*.mp4           [lfs]
+*.mov           [lfs]
+*.webm          [lfs]
+*.avi           [lfs]
+# Unity 套件 / 其他大檔
+*.unitypackage  [lfs]
+*.psd           [lfs]   # Photoshop 檔常超大
+# 其他建議（可選，視專案需要加）
+# *. LightingData.asset [lfs]   # 如果你的 LightingData.asset 很大，可加這行（但小心合併問題）
+# *.tga           [lfs]         # 已在上方
+# 文字檔明確不走 LFS（避免誤傷）
+*.cs            text diff=csharp
+*.shader        text
+*.cginc         text
+*.hlsl          text
+*.txt           text
+*.md            text
+*.json          text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.OBJ filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.FBX filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.hdr filter=lfs diff=lfs merge=lfs -text
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.unitypackage filter=lfs diff=lfs merge=lfs -text
