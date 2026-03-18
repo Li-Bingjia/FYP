@@ -93,6 +93,8 @@ public class VisionAgent : MonoBehaviour
             detected = true;
             onDetected?.Invoke();
             Debug.Log("Target Detected");
+            ScreenshotCameraController.Instance?.ForceLookAt(this.transform);
+
         }
     }
     private void UnDetected()

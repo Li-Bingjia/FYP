@@ -55,8 +55,30 @@ public class CharacterControl : MonoBehaviour
         camRight.y = 0f;
         camRight.Normalize();
 
-        // 让角色移动方向跟随摄像机
-        motion = camForward * input.z + camRight * input.x;
+        // 第一人称时，角色不旋转，移动方向始终和摄像机一致
+        if (ScreenshotCameraController.IsFirstPersonView)
+        {
+            motion = camForward * input.z + camRight * input.x;
+        }
+        else
+        {
+            motion = camForward * input.z + camRight * input.x;
+
+            // 只在第三人称时让角色朝向鼠标
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+            if (Physics.Raycast(ray, out hit, 100f, groundMask))
+            {
+                Vector3 lookPoint = hit.point;
+                Vector3 lookDir = lookPoint - characterTransform.position;
+                lookDir.y = 0f;
+                if (lookDir.sqrMagnitude > 0.01f)
+                {
+                    Quaternion targetRot = Quaternion.LookRotation(lookDir);
+                    characterTransform.rotation = Quaternion.Slerp(characterTransform.rotation, targetRot, rotationSpeed * Time.deltaTime);
+                }
+            }
+        }
 
         animator.SetFloat("MovingSpeed", motion.magnitude);
 
@@ -90,21 +112,6 @@ public class CharacterControl : MonoBehaviour
             }
         }
 
-        // 始终朝向鼠标
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-        if (Physics.Raycast(ray, out hit, 100f, groundMask))
-        {
-            Vector3 lookPoint = hit.point;
-            Vector3 lookDir = lookPoint - characterTransform.position;
-            lookDir.y = 0f;
-            if (lookDir.sqrMagnitude > 0.01f)
-            {
-                Quaternion targetRot = Quaternion.LookRotation(lookDir);
-                characterTransform.rotation = Quaternion.Slerp(characterTransform.rotation, targetRot, rotationSpeed * Time.deltaTime);
-            }
-        }
-
         if (quietCubeTransform != null)
         {
             Vector3 playerPos = transform.position;
@@ -121,6 +128,12 @@ public class CharacterControl : MonoBehaviour
         {
             staminaBar.value = sprintDuration - sprintTimer;
         }  
+        // 第一人称下，角色 transform 始终与摄像机（head）y轴方向一致
+        if (ScreenshotCameraController.IsFirstPersonView)
+        {
+            Vector3 camEuler = camTransform.eulerAngles;
+            characterTransform.rotation = Quaternion.Euler(0, camEuler.y, 0);
+        }
     }
 
     public bool IsQuiet()
@@ -143,7 +156,7 @@ public class CharacterControl : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // 可选：如果你还需要触发器方式，也可以保留
+        // 可选
     }
 
     private void OnTriggerExit(Collider other)
