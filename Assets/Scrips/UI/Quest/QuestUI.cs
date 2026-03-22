@@ -43,7 +43,7 @@ public class QuestUI : MonoBehaviour
             {
                 GameObject objTextGO = Instantiate(objectTextPrefab, objectiveList);
                 TMP_Text objText = objTextGO.GetComponent<TMP_Text>();
-                objText.text = $"{obj.description} ({obj.currentAmount}/{obj.requiredAmount})";
+                objText.text = $"{obj.description} ({obj.currentAmount:F1}/{obj.requiredAmount}s)";
             }
         }
     }

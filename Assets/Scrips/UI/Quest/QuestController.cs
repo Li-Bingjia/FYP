@@ -9,7 +9,7 @@ public class QuestController : MonoBehaviour
     public List<QuestProgress> activeQuests = new();
     
     public QuestUI questUI;
-
+    public bool hasStealthBuffQuest => activeQuests.Exists(q => q.quest.questID.StartsWith("stealth_buff_quest"));
     public List<string> handinQuestIDs = new(); 
     void Start() {
         questUI = FindFirstObjectByType<QuestUI>(); // 先赋值
@@ -33,6 +33,10 @@ public class QuestController : MonoBehaviour
         if(IsQuestActive(quest.questID)) return;
         activeQuests.Add(new QuestProgress(quest));
         questUI.UpdateQuestUI();
+        if (quest.questID.StartsWith("stealth_buff_quest")) {
+            var player = FindAnyObjectByType<CharacterControl>();
+            if (player != null) player.stealthBuffQuestActive = true;
+        }
     }
     public bool IsQuestActive(string questID)
     {
@@ -55,7 +59,7 @@ public class QuestController : MonoBehaviour
                     if (itemCounts.TryGetValue(objID, out int count))
                     {
                         //Debug.Log($"[QuestController] itemCounts[{objID}]={count}");
-                        newAmount = Mathf.Min(count, questObjective.requiredAmount);
+                        newAmount = Mathf.Min(count, (int)questObjective.requiredAmount);
                     }
                 }
                 if (questObjective.currentAmount != newAmount)
@@ -100,7 +104,7 @@ public class QuestController : MonoBehaviour
         {
             if (objective.type == Quest.ObjectiveType.CollectItem && int.TryParse(objective.objectiveID, out int itemID))
             {
-                requiredItems[itemID] = objective.requiredAmount;
+                requiredItems[itemID] = (int)objective.requiredAmount;
             }
         }
         Dictionary<int, int> itemCounts = StockController.Instance.GetItemCounts();

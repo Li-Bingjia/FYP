@@ -8,7 +8,7 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] Animator animator;
     [SerializeField] private Slider staminaBar;
     new Rigidbody rigidbody;
-    bool isQuiet = false; 
+    bool isQuiet = false;
     [SerializeField] Transform quietCubeTransform;
     [SerializeField] float moveSpeed = 3f;
     [SerializeField] float sprintSpeed = 6f;
@@ -16,12 +16,23 @@ public class CharacterControl : MonoBehaviour
     [SerializeField] float staminaRecoveryRate = 1f;
     [SerializeField] float quietSpeed = 1.5f;
     [SerializeField] QuietCube quietCube;
+    [SerializeField] GameObject speedBuffEffectPrefab;
+    private GameObject speedBuffEffectInstance;
     float sprintTimer = 0f;
     bool isSprinting = false;
     [SerializeField] float rotationSpeed = 10f;
     Transform characterTransform;
     [SerializeField] LayerMask groundMask;
     private IInteractable currentInteractable;
+
+    // Buff & 侦测相关
+    private float undetectedTimer = 0f;
+    public float undetectedThreshold = 5f; // 5秒未被发现
+    public bool stealthBuffQuestActive = false;
+    private bool hasBuff = false;
+    [HideInInspector]
+    public bool isDetected = false;
+    private float speedBuffMultiplier = 1f;
 
     Vector3 motion;
 
@@ -123,19 +134,80 @@ public class CharacterControl : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.E) && currentInteractable != null && currentInteractable.CanInteract())
         {
             currentInteractable.Interact();
-        }  
+        }
         if (staminaBar != null)
         {
             staminaBar.value = sprintDuration - sprintTimer;
-        }  
+        }
         // 第一人称下，角色 transform 始终与摄像机（head）y轴方向一致
         if (ScreenshotCameraController.IsFirstPersonView)
         {
             Vector3 camEuler = camTransform.eulerAngles;
             characterTransform.rotation = Quaternion.Euler(0, camEuler.y, 0);
         }
-    }
 
+        // 未被发现计时与buff逻辑
+        if (!isDetected)
+        {
+            undetectedTimer += Time.deltaTime;
+            if (!hasBuff && undetectedTimer >= undetectedThreshold)
+            {
+                hasBuff = true;
+                BuffManager.Instance.GiveSpeedBuff(this, 2f);
+            }
+        }
+        else
+        {
+            undetectedTimer = 0f;
+            hasBuff = false;
+        }
+        if (stealthBuffQuestActive) {
+            if (!isDetected) {
+                undetectedTimer += Time.deltaTime;
+                if (!hasBuff && undetectedTimer >= undetectedThreshold) {
+                    hasBuff = true;
+                    BuffManager.Instance.GiveSpeedBuff(this, 2f);
+                }
+            } else {
+                undetectedTimer = 0f;
+                hasBuff = false;
+            }
+        }
+        if (stealthBuffQuestActive) {
+            var quest = QuestController.Instance.activeQuests
+                .Find(q => q.quest.questID.StartsWith("stealth_buff_quest"));
+            if (quest != null) {
+                var timeObj = quest.objectives.Find(o => o.type == Quest.ObjectiveType.Custom /*或TimeBased*/);
+                if (timeObj != null) {
+                    if (!isDetected) {
+                        timeObj.currentAmount = Mathf.Min(timeObj.currentAmount + Time.deltaTime, timeObj.requiredAmount);
+                    } else {
+                        timeObj.currentAmount = 0;
+                    }
+                }
+            }
+        }
+    }
+    public void SetSpeedBuff(float multiplier)
+    {
+        speedBuffMultiplier = multiplier;
+        if (multiplier > 1f)
+        {
+            if (speedBuffEffectInstance == null && speedBuffEffectPrefab != null)
+            {
+                speedBuffEffectInstance = Instantiate(speedBuffEffectPrefab, transform);
+                speedBuffEffectInstance.transform.localPosition = new Vector3(0, 3, 0); // 让特效在角色头顶或身体上方
+            }
+        }
+        else
+        {
+            if (speedBuffEffectInstance != null)
+            {
+                Destroy(speedBuffEffectInstance);
+                speedBuffEffectInstance = null;
+            }
+        }
+    }
     public bool IsQuiet()
     {
         return isQuiet;
@@ -145,22 +217,45 @@ public class CharacterControl : MonoBehaviour
     {
         float currentSpeed;
         if (isQuiet)
-            currentSpeed = quietSpeed;
+            currentSpeed = quietSpeed * speedBuffMultiplier;
         else if (isSprinting)
-            currentSpeed = sprintSpeed;
+            currentSpeed = sprintSpeed * speedBuffMultiplier;
         else
-            currentSpeed = moveSpeed;
+            currentSpeed = moveSpeed * speedBuffMultiplier;
 
         rigidbody.velocity = new Vector3(motion.x * currentSpeed, rigidbody.velocity.y, motion.z * currentSpeed);
     }
 
+
+
+    // 敌人发现/丢失时调用
+    public void OnDetectedByEnemy()
+    {
+        isDetected = true;
+        undetectedTimer = 0f;
+        hasBuff = false;
+    }
+
+    public void OnLostByEnemy()
+    {
+        isDetected = false;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
-        // 可选
+        var interactable = other.GetComponent<IInteractable>();
+        if (interactable != null)
+        {
+            currentInteractable = interactable;
+        }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        // 可选
+        var interactable = other.GetComponent<IInteractable>();
+        if (interactable != null && currentInteractable == interactable)
+        {
+            currentInteractable = null;
+        }
     }
 }

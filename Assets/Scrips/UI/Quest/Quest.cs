@@ -25,8 +25,8 @@ public class Quest : ScriptableObject
         public string objectiveID;
         public string description;
         public ObjectiveType type;
-        public int requiredAmount;
-        public int currentAmount;   
+        public float requiredAmount;
+        public float currentAmount;   
         public bool isCompleted;
         public bool IsCompleted => currentAmount >= requiredAmount; 
    }
@@ -37,7 +37,8 @@ public class Quest : ScriptableObject
        DefeatEnemy,
        ReachLocation,
        TalkToNPC,
-       Custom
+       Custom,
+       TimeBased
    }
 }
 // ...前略...
@@ -72,7 +73,7 @@ public class QuestReward
 {
     public RewardType type;
     public int rewardID;
-    public int amount = 1;   
+    public float amount = 1;   
 }
 public enum RewardType
 {

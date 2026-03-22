@@ -20,7 +20,7 @@ public class RewardsController : MonoBehaviour
             switch(reward.type)
             {
                 case RewardType.Item:
-                    GiveItemReward(reward.rewardID, reward.amount);
+                    GiveItemReward(reward.rewardID, (int)reward.amount);
                     break;
                 case RewardType.Experience:
                     // TODO: 经验奖励逻辑

@@ -125,6 +125,19 @@ public class Character : MonoBehaviour
             isChasing = true;
             lostPlayer = false;
         }
+        // OnPlayerDetected
+        if (playerTarget != null)
+        {
+            var cc = playerTarget.GetComponent<CharacterControl>();
+            if (cc != null) cc.OnDetectedByEnemy();
+        }
+
+        // OnPlayerLost
+        if (playerTarget != null)
+        {
+            var cc = playerTarget.GetComponent<CharacterControl>();
+            if (cc != null) cc.OnLostByEnemy();
+        }
     }
 
     void OnPlayerLost()

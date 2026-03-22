@@ -12,19 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 861cd6c6b2af57647a068a2bcdaa8564, type: 3}
   m_Name: Q_A_2
   m_EditorClassIdentifier: 
-  questID: 0ff025af-13c3-47fd-a9f1-7b64e9ac3fed
-  questName: switch
-  description: find a gem
+  questID: stealth_buff_quest_1
+  questName: Blessing
+  description: Complete the shrine's tasks to receive generous rewards.
   objectives:
-  - objectiveID: 4
-    description: bbbb
-    type: 3
-    requiredAmount: 2
+  - objectiveID: Shrine Blessing
+    description: Stay in stealth mode undetected for 30 seconds
+    type: 4
+    requiredAmount: 30
     currentAmount: 0
     isCompleted: 0
-  - objectiveID: 5
-    description: wwww
-    type: 2
-    requiredAmount: 2
-    currentAmount: 0
-    isCompleted: 0
+  questRewards: []
