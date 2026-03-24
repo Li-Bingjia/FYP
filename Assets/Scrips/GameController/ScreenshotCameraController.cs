@@ -8,9 +8,9 @@ public class ScreenshotCameraController : MonoBehaviour
     [SerializeField] private Transform target;
 
     [Header("Zoom")]
-    [SerializeField] private float zoomSpeed = 2f;
-    [SerializeField] private float minDistance = 1f;
-    [SerializeField] private float maxDistance = 30f;
+    [SerializeField] private float zoomSpeed = 0.5f; // 更细腻
+    [SerializeField] private float minDistance = 1.5f; // 更合理
+    [SerializeField] private float maxDistance = 8f;   // 更合理
     [SerializeField] private float zoomSmooth = 8f;
     [SerializeField] private Transform head;
     [SerializeField] private GameObject bodyModel; // 角色身体模型    
@@ -25,9 +25,14 @@ public class ScreenshotCameraController : MonoBehaviour
     [Header("Fixed Y Offset")]
     [SerializeField] private float fixedYOffset = 3f; // 固定Y轴偏移
 
+    [Header("Shoulder View")]
+    [SerializeField] private float shoulderOffsetNear = 0.5f; // 近距离越肩偏移
+    [SerializeField] private float shoulderDistanceThreshold = 2.5f; // 小于此距离时启用越肩
+    [SerializeField] private float shoulderOffsetFar = 0f; // 远距离偏移（正后方）
+
     private CinemachineTransposer transposer;
-    private float targetDistance = 10f;
-    private float currentDistance = 10f;
+    private float targetDistance = 5f;
+    private float currentDistance = 5f;
 
     private float yaw, pitch;
     private float targetYaw, targetPitch;
@@ -58,7 +63,7 @@ public class ScreenshotCameraController : MonoBehaviour
         transposer = vcam.GetCinemachineComponent<CinemachineTransposer>();
         if (transposer != null)
         {
-            currentDistance = targetDistance = -transposer.m_FollowOffset.z;
+            currentDistance = targetDistance = Mathf.Clamp(-transposer.m_FollowOffset.z, minDistance, maxDistance);
             yaw = targetYaw = target.eulerAngles.y;
             pitch = targetPitch = 20f;
             smoothPitch = pitch;
@@ -87,12 +92,12 @@ public class ScreenshotCameraController : MonoBehaviour
                 thirdPersonTargetYaw = targetYaw;
                 thirdPersonTargetPitch = targetPitch;
 
-                transitionTargetOffset = new Vector3(0, fixedYOffset, -0.1f);
+                transitionTargetOffset = new Vector3(0, 0f, -0.1f);
                 transitionTargetRot = Quaternion.Euler(pitch, yaw, 0);
             }
             else
             {
-                transitionTargetOffset = new Vector3(0, fixedYOffset, -thirdPersonDistance);
+                transitionTargetOffset = new Vector3(shoulderOffsetNear, fixedYOffset, -thirdPersonDistance);
                 transitionTargetRot = Quaternion.Euler(thirdPersonPitch, thirdPersonYaw, 0);
             }
         }
@@ -137,11 +142,19 @@ public class ScreenshotCameraController : MonoBehaviour
                     vcam.LookAt = head;
                     targetDistance = 0.1f;
                     if (bodyModel != null) bodyModel.SetActive(false);
+
+                    // 切换第一人称时，摄像机yaw和角色y轴同步
+                    if (head != null)
+                    {
+                        yaw = targetYaw = head.eulerAngles.y;
+                        // pitch不强制归零，保留当前pitch，用户可自己调整
+                        smoothPitch = pitch;
+                    }
                 }
                 else
                 {
                     vcam.Follow = target;
-                    vcam.LookAt = target;
+                    vcam.LookAt = head; // 始终LookAt头部
                     targetDistance = thirdPersonDistance;
                     currentDistance = thirdPersonDistance;
                     yaw = thirdPersonYaw;
@@ -166,8 +179,21 @@ public class ScreenshotCameraController : MonoBehaviour
         // Rotation input
         float mouseX = Input.GetAxis("Mouse X");
         float mouseY = Input.GetAxis("Mouse Y");
-        targetYaw += mouseX * mouseSensitivity * Time.deltaTime;
-        targetPitch -= mouseY * mouseSensitivity * Time.deltaTime;
+
+        if (isFirstPerson)
+        {
+            // 第一人称下，降低y轴灵敏度
+            float firstPersonYawSensitivity = mouseSensitivity;
+            float firstPersonPitchSensitivity = mouseSensitivity * 0.5f; // y轴灵敏度减半，可根据需要调整
+
+            targetYaw += mouseX * firstPersonYawSensitivity * Time.deltaTime;
+            targetPitch -= mouseY * firstPersonPitchSensitivity * Time.deltaTime;
+        }
+        else
+        {
+            targetYaw += mouseX * mouseSensitivity * Time.deltaTime;
+            targetPitch -= mouseY * mouseSensitivity * Time.deltaTime;
+        }
         targetPitch = Mathf.Clamp(targetPitch, minPitch, maxPitch);
 
         // Smooth rotation
@@ -185,12 +211,25 @@ public class ScreenshotCameraController : MonoBehaviour
             smoothPitch = pitch;
         }
 
+        // 设定 yOffset 的最大最小范围
+        float minYOffset = 1f;
+        float maxYOffset = 2.5f;
+
+        float targetYOffset = isFirstPerson ? 0f : (currentDistance < shoulderDistanceThreshold ? maxYOffset : minYOffset);
+        float yOffset = isFirstPerson ? 0.5f : 2f;
+
+        // 近距离自动越肩
+        float shoulderOffset = (!isFirstPerson && currentDistance < shoulderDistanceThreshold) ? shoulderOffsetNear : shoulderOffsetFar;
+        if (isFirstPerson)
+        {
+            pitch = targetPitch = smoothPitch = -60f;
+        }
         // Camera position
-        float yOffset = isFirstPerson ? 0f : fixedYOffset;
-        Vector3 offset = new Vector3(0, yOffset, -currentDistance);
+        Vector3 offset = new Vector3(shoulderOffset, yOffset, -currentDistance);
         Quaternion rotation = Quaternion.Euler(smoothPitch, yaw, 0);
         transposer.m_FollowOffset = rotation * offset;
     }
+
     public static ScreenshotCameraController Instance { get; private set; }
 
     void Awake()
@@ -201,6 +240,22 @@ public class ScreenshotCameraController : MonoBehaviour
     // 强制摄像机朝向目标
     public void ForceLookAt(Transform enemy)
     {
+        // 强制切换为第三人称
+        if (isFirstPerson)
+        {
+            isTransitioning = true;
+            transitionTimer = 0f;
+            transitionToFirstPerson = false;
+
+            // 记录起点
+            transitionStartOffset = transposer.m_FollowOffset;
+            transitionStartRot = Quaternion.Euler(pitch, yaw, 0);
+
+            // 计算终点
+            transitionTargetOffset = new Vector3(shoulderOffsetNear, fixedYOffset, -thirdPersonDistance);
+            transitionTargetRot = Quaternion.Euler(thirdPersonPitch, thirdPersonYaw, 0);
+        }
+
         if (enemy == null) return;
 
         Vector3 camPos = (IsFirstPersonView && head != null) ? head.position : target.position;

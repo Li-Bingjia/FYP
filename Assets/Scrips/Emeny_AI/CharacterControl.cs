@@ -146,42 +146,38 @@ public class CharacterControl : MonoBehaviour
             characterTransform.rotation = Quaternion.Euler(0, camEuler.y, 0);
         }
 
-        // 未被发现计时与buff逻辑
-        if (!isDetected)
+        // 只在任务激活时才判定buff和计时
+        if (stealthBuffQuestActive)
         {
-            undetectedTimer += Time.deltaTime;
-            if (!hasBuff && undetectedTimer >= undetectedThreshold)
+            if (!isDetected)
             {
-                hasBuff = true;
-                BuffManager.Instance.GiveSpeedBuff(this, 2f);
-            }
-        }
-        else
-        {
-            undetectedTimer = 0f;
-            hasBuff = false;
-        }
-        if (stealthBuffQuestActive) {
-            if (!isDetected) {
                 undetectedTimer += Time.deltaTime;
-                if (!hasBuff && undetectedTimer >= undetectedThreshold) {
+                if (!hasBuff && undetectedTimer >= undetectedThreshold)
+                {
                     hasBuff = true;
                     BuffManager.Instance.GiveSpeedBuff(this, 2f);
                 }
-            } else {
+            }
+            else
+            {
                 undetectedTimer = 0f;
                 hasBuff = false;
             }
-        }
-        if (stealthBuffQuestActive) {
+
+            // 任务目标进度更新
             var quest = QuestController.Instance.activeQuests
                 .Find(q => q.quest.questID.StartsWith("stealth_buff_quest"));
-            if (quest != null) {
-                var timeObj = quest.objectives.Find(o => o.type == Quest.ObjectiveType.Custom /*或TimeBased*/);
-                if (timeObj != null) {
-                    if (!isDetected) {
+            if (quest != null)
+            {
+                var timeObj = quest.objectives.Find(o => o.type == Quest.ObjectiveType.Custom);
+                if (timeObj != null)
+                {
+                    if (!isDetected)
+                    {
                         timeObj.currentAmount = Mathf.Min(timeObj.currentAmount + Time.deltaTime, timeObj.requiredAmount);
-                    } else {
+                    }
+                    else
+                    {
                         timeObj.currentAmount = 0;
                     }
                 }
