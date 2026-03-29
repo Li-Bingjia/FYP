@@ -69,7 +69,7 @@ public class CustomerNPC : MonoBehaviour
             agent.speed = moveSpeed;
         }
 
-        buildingSystem = FindObjectOfType<Building>();
+        buildingSystem = FindFirstObjectByType<Building>();
 
         currentState = State.MovingToSeat;
 
@@ -154,7 +154,7 @@ public class CustomerNPC : MonoBehaviour
 
         float closestDist = float.MaxValue;
         DiningChair bestChair = null;
-        DiningChair[] allChairs = FindObjectsOfType<DiningChair>();
+        DiningChair[] allChairs = FindObjectsByType<DiningChair>(FindObjectsSortMode.None);
 
         foreach (var chair in allChairs)
         {

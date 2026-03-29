@@ -8,8 +8,8 @@ public class StockController : MonoBehaviour
     public GameObject stockPanel;
     public GameObject slockPrefab;
     public int stockCount;
-    public GameObject[] itemPerfabs; // 这些Prefab要有ItemDragHandler和ItemData
-
+    public GameObject[] itemPerfabs; // 索引与Item.ID一致
+    public RectTransform slotsRoot;
     public static StockController Instance { get; private set; }
     Dictionary<int, int> itemsCountCache = new();
     public event Action OnStockChanged;
@@ -17,14 +17,21 @@ public class StockController : MonoBehaviour
     void Start()
     {
         Instance = this;
+        Debug.Log($"itemPerfabs == null? {itemPerfabs == null}, Length: {(itemPerfabs == null ? -1 : itemPerfabs.Length)}");
         for (int i = 0; i < stockCount; i++)
         {
-            Slot slot = Instantiate(slockPrefab, stockPanel.transform).GetComponent<Slot>();
-            if (i < itemPerfabs.Length)
+            Slot slot = Instantiate(slockPrefab, slotsRoot).GetComponent<Slot>();
+            Debug.Log($"生成Slot: {i}, 名称: {slot.gameObject.name}");
+
+            if (i < itemPerfabs.Length && itemPerfabs[i] != null)
             {
-                GameObject item = Instantiate(itemPerfabs[i], slot.transform);
-                item.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
-                slot.currentItem = item;
+                GameObject itemObj = Instantiate(itemPerfabs[i], slot.transform);
+                itemObj.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
+                slot.currentItem = itemObj;
+            }
+            else
+            {
+                slot.currentItem = null;
             }
         }
         RebuildItemCounts();
@@ -33,7 +40,7 @@ public class StockController : MonoBehaviour
     public void RebuildItemCounts()
     {
         itemsCountCache.Clear();
-        foreach (Transform slotTransform in stockPanel.transform)
+        foreach (Transform slotTransform in slotsRoot)
         {
             Slot slot = slotTransform.GetComponent<Slot>();
             if (slot.currentItem != null)
@@ -41,80 +48,67 @@ public class StockController : MonoBehaviour
                 ItemBehaviour itemBehaviour = slot.currentItem.GetComponent<ItemBehaviour>();
                 if (itemBehaviour != null && itemBehaviour.item != null)
                 {
-                    //Debug.Log($"[StockController] RebuildItemCounts: item.ID={itemBehaviour.item.ID}, quantity={itemBehaviour.quantity}");
                     itemsCountCache[itemBehaviour.item.ID] = itemsCountCache.GetValueOrDefault(itemBehaviour.item.ID, 0) + itemBehaviour.quantity;
                 }
             }
         }
-        //Debug.Log($"[StockController] RebuildItemCounts: itemsCountCache.Count={itemsCountCache.Count}");
         OnStockChanged?.Invoke();
     }
 
     public Dictionary<int, int> GetItemCounts() => itemsCountCache;
 
-    public void AddItemToStock(ItemData itemData)
+    public void AddItemToStock(Item item)
     {
         if (itemPerfabs == null || itemPerfabs.Length == 0)
-        {
-            //Debug.LogError("itemPerfabs is empty! Please assign at least one prefab in the inspector.");
             return;
-        }
 
-        foreach (Transform child in stockPanel.transform)
+        foreach (Transform child in slotsRoot)
         {
             Slot slot = child.GetComponent<Slot>();
             if (slot.currentItem == null)
             {
-                GameObject item = Instantiate(itemPerfabs[0], slot.transform);
-                item.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
-                slot.currentItem = item;
+                GameObject itemObj = Instantiate(itemPerfabs[item.ID], slot.transform);
+                itemObj.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
+                slot.currentItem = itemObj;
 
-                var drag = item.GetComponent<ItemDragHandler>();
+                var drag = itemObj.GetComponent<ItemDragHandler>();
                 if (drag == null)
-                    drag = item.AddComponent<ItemDragHandler>();
-                if (item.GetComponent<CanvasGroup>() == null)
-                    item.AddComponent<CanvasGroup>();
+                    drag = itemObj.AddComponent<ItemDragHandler>();
+                if (itemObj.GetComponent<CanvasGroup>() == null)
+                    itemObj.AddComponent<CanvasGroup>();
 
-                drag.itemData = itemData;
+                drag.item = item;
 
-                // 关键：给 ItemBehaviour 赋值
-                var itemBehaviour = item.GetComponent<ItemBehaviour>();
+                var itemBehaviour = itemObj.GetComponent<ItemBehaviour>();
                 if (itemBehaviour != null)
                 {
-                    Item itemSO = Resources.Load<Item>("Items/" + itemData.itemName);
-                    if (itemSO != null)
-                    {
-                        itemBehaviour.item = itemSO;
-                        itemBehaviour.quantity = 1;
-                        // 确认 itemSO.ID == itemData.itemID
-                    }
-                    else
-                    {
-                        //Debug.LogWarning("找不到与ItemData对应的Item ScriptableObject: " + itemData.itemName);
-                    }
+                    itemBehaviour.item = item;
+                    itemBehaviour.quantity = 1;
                 }
 
-                var img = item.GetComponent<UnityEngine.UI.Image>();
-                if (img != null && itemData.icon2D != null)
-                    img.sprite = itemData.icon2D;
+                var img = itemObj.GetComponent<UnityEngine.UI.Image>();
+                if (img != null && item.icon != null)
+                    img.sprite = item.icon;
 
                 break;
             }
         }
         RebuildItemCounts();
     }
+
     public void RemoveItemFromStock(int itemID, int amountToRemove)
     {
-        foreach (Transform slotTransform in stockPanel.transform)
+        foreach (Transform slotTransform in slotsRoot)
         {
-            if(amountToRemove <= 0) break;
+            if (amountToRemove <= 0) break;
             Slot slot = slotTransform.GetComponent<Slot>();
-            if (slot?.currentItem?.GetComponent<Item>() is Item item && item.ID == itemID)
+            var itemBehaviour = slot?.currentItem?.GetComponent<ItemBehaviour>();
+            if (itemBehaviour != null && itemBehaviour.item != null && itemBehaviour.item.ID == itemID)
             {
-                int removed = Mathf.Min(amountToRemove, item.quantity);
-                item.RemoveFromStack(removed);
+                int removed = Mathf.Min(amountToRemove, itemBehaviour.quantity);
+                itemBehaviour.quantity -= removed;
                 amountToRemove -= removed;
-                if (item.quantity == 0)
+                if (itemBehaviour.quantity == 0)
                 {
                     Destroy(slot.currentItem);
                     slot.currentItem = null;

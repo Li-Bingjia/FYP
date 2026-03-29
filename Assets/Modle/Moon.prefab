@@ -99,7 +99,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4752b7d4bb421bc4b8e5690d667b8154, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  itemData: {fileID: 11400000, guid: a4d77740181fb16439dd96edaf9b0439, type: 2}
+  item: {fileID: 11400000, guid: 3ddb832ed3538704d92a4122a84db892, type: 2}
   rotateSpeed: 180
   highlightSpeed: 5
   highlightIntensity: 1.5
@@ -137,7 +137,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   objectiveID: 2
-  itemData: {fileID: 11400000, guid: a4d77740181fb16439dd96edaf9b0439, type: 2}
+  item: {fileID: 11400000, guid: 3ddb832ed3538704d92a4122a84db892, type: 2}
 --- !u!114 &4124331754316000959
 MonoBehaviour:
   m_ObjectHideFlags: 0

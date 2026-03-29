@@ -4,27 +4,19 @@ using UnityEngine;
 
 public class QuestItem3D : MonoBehaviour
 {
-    // 任务目标ID（与QuestObjective.objectiveID一致）
     public string objectiveID;
+    public Item item; // 只用Item
 
-    // 可选：引用ItemData或Quest相关数据
-    public ItemData itemData;
-
-    // 可选：初始化时赋值
-    public void Init(string id, ItemData data = null)
+    public void Init(string id, Item itemObj = null)
     {
         objectiveID = id;
-        itemData = data;
+        item = itemObj;
     }
 
-    // 示例：玩家拾取时通知任务系统
     public void OnPickUp()
     {
-        // 添加到背包
-        if (StockController.Instance != null && itemData != null)
-            StockController.Instance.AddItemToStock(itemData);
-
-        //Debug.Log($"QuestItem3D Picked Up: objectiveID={objectiveID}");
+        if (StockController.Instance != null && item != null)
+            StockController.Instance.AddItemToStock(item);
         Destroy(gameObject);
     }
 }

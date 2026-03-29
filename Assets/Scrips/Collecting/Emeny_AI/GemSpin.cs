@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class GemSpin : MonoBehaviour
 {
-    public ItemData itemData; // 只挂数据
+    public Item item; // 只挂Item
     private StockController stockController;
 
     [Header("旋转设置")]
@@ -44,9 +44,9 @@ public class GemSpin : MonoBehaviour
 
         if (canPickUp && Input.GetKeyDown(KeyCode.E))
         {
-            if (stockController != null && itemData != null)
+            if (stockController != null && item != null)
             {
-                stockController.AddItemToStock(itemData);
+                stockController.AddItemToStock(item);
             }
             gameObject.SetActive(false);
         }

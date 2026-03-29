@@ -16,7 +16,6 @@ public class Building : MonoBehaviour
     private CinemachineTransposer transposer;
     private Vector3 savedOffset;
     private float savedYaw, savedPitch;
-    private bool isTopDown = false;
 
     [Header("Grid Settings")]
     public float cellSize = 0.5f;     
@@ -28,11 +27,14 @@ public class Building : MonoBehaviour
     [Header("Build Mode State")]
     public bool isBuildMode = false;
     public GameObject player;
-
+    private Vector3 savedCamPosition;
+    private Quaternion savedCamRotation;
+    public float buildCamMoveSpeed = 5f; 
     public GameObject selectedObject;
     private CharacterControl_Cooking playerMovement;
     private float pivotToBottomOffset; 
     private Vector3 dragOffset; 
+    private CameraBuildModeController buildCamController;
 
     [Header("Audio")]
     [SerializeField] private AudioSource audioSource; 
@@ -58,6 +60,7 @@ public class Building : MonoBehaviour
             }
             gridVisualizer.SetActive(false);
         }
+        buildCamController = Camera.main.GetComponent<CameraBuildModeController>();
         if (vcam != null)
             transposer = vcam.GetCinemachineComponent<CinemachineTransposer>();
     }
@@ -109,14 +112,34 @@ public class Building : MonoBehaviour
                 savedYaw = vcam.transform.eulerAngles.y;
                 savedPitch = vcam.transform.eulerAngles.x;
                 transposer.m_FollowOffset = new Vector3(0, 15f, 0); 
-                vcam.transform.rotation = Quaternion.Euler(90f, 0f, 0f); 
-                isTopDown = true;
+                vcam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                savedCamPosition = vcam.transform.position;
+                savedCamRotation = vcam.transform.rotation;
+
+                Vector3 pos = vcam.transform.position;
+                pos.y = 3f;
+                vcam.transform.position = pos;
+                vcam.transform.rotation = Quaternion.Euler(80f, 0f, 0f);
             }
             else
             {
                 transposer.m_FollowOffset = savedOffset;
                 vcam.transform.rotation = Quaternion.Euler(savedPitch, savedYaw, 0f);
-                isTopDown = false;
+                vcam.transform.position = savedCamPosition;
+                vcam.transform.rotation = savedCamRotation;
+            }
+        }
+        if (buildCamController != null)
+        {
+            if (isBuildMode)
+            {
+                buildCamController.EnterBuildMode();
+                if (vcam != null) vcam.gameObject.SetActive(false); 
+            }
+            else
+            {
+                buildCamController.ExitBuildMode();
+                if (vcam != null) vcam.gameObject.SetActive(true); 
             }
         }
         if (cameraControllerScript != null)
@@ -291,9 +314,8 @@ public class Building : MonoBehaviour
         if (selectedObject == null) return;
 
         Debug.Log($"已回收家具: {selectedObject.name}");
-        
-        // 调用 BuildMenuUI 的回收方法，将家具增加回库存
-        BuildMenuUI buildMenuUI = FindObjectOfType<BuildMenuUI>();
+
+        BuildMenuUI buildMenuUI = FindFirstObjectByType<BuildMenuUI>();
         if (buildMenuUI != null)
         {
             buildMenuUI.RetrieveFurniture(selectedObject);

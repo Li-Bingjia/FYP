@@ -23,7 +23,7 @@ public class CustomerSpawner : MonoBehaviour
 
     private Building buildingSystem;
     void Start() {
-        buildingSystem = FindObjectOfType<Building>();
+        buildingSystem = FindFirstObjectByType<Building>();
         StartCoroutine(SpawnRoutine());
     }
 
@@ -44,7 +44,7 @@ public class CustomerSpawner : MonoBehaviour
 
     private void TrySpawnCustomers()
     {
-        DiningChair[] allChairs = FindObjectsOfType<DiningChair>();
+        DiningChair[] allChairs = FindObjectsByType<DiningChair>(FindObjectsSortMode.None);
         List<DiningChair> validChairs = new List<DiningChair>();
 
         foreach (var chair in allChairs)

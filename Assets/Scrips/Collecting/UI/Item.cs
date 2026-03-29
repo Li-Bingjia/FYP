@@ -14,7 +14,7 @@ public class Item : ScriptableObject
     [TextArea]
     public string description;
     public Sprite icon;
-
+    public GameObject prefab3D;
     /// <summary>
     /// 从堆叠中移除指定数量
     /// </summary>

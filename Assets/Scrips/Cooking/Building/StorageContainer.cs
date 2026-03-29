@@ -27,18 +27,31 @@ public class StorageContainer : MonoBehaviour
 
     void Update()
     {
-        // 处理玩家交互
+        if (StorageUIController.Instance != null && StorageUIController.Instance.storagePanel.activeSelf)
+        {
+            if (Input.GetKeyDown(KeyCode.E))
+            {
+                StorageUIController.Instance.CloseStorage();
+            }
+            return; 
+        }
+
         if (isPlayerInRange && Input.GetKeyDown(KeyCode.E))
         {
-            // [修复] 之前这里缺少左括号，导致后续 'this' 无法被识别
-            if (uiManager != null)
+            if (StorageUIController.Instance != null)
             {
-                uiManager.ToggleStorageUI(this);
+                List<Item> itemList = new List<Item>();
+                foreach (var go in storedItems)
+                {
+                    var itemBehaviour = go.GetComponent<ItemBehaviour>();
+                    if (itemBehaviour != null && itemBehaviour.item != null)
+                        itemList.Add(itemBehaviour.item);
+                }
+                StorageUIController.Instance.OpenStorage(itemList);
             }
         }
     }
 
-    // 物品放入检测
     private void OnTriggerEnter(Collider other)
     {
         // 玩家检测

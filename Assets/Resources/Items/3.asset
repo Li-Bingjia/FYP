@@ -16,4 +16,5 @@ MonoBehaviour:
   itemName: Coin
   quantity: 1
   description: 
-  icon: {fileID: 21300000, guid: bb2fea78e84508c40be42cb829c45a79, type: 3}
+  icon: {fileID: 21300000, guid: 31c366cd13fc37644bc2cd81cf2af047, type: 3}
+  prefab3D: {fileID: 4493574728114017559, guid: 9787f996458269948bd01c8c835d7c37, type: 3}

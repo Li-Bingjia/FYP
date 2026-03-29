@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 6616990948580206129}
   - component: {fileID: 3985482203627466829}
   - component: {fileID: 4157081674851243522}
-  - component: {fileID: 3880422668143245610}
   m_Layer: 5
   m_Name: Moon
   m_TagString: Untagged
@@ -61,7 +60,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a21b7eb36b3fdb4390dd5b71a048357, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  itemData: {fileID: 11400000, guid: a4d77740181fb16439dd96edaf9b0439, type: 2}
+  item: {fileID: 11400000, guid: 3ddb832ed3538704d92a4122a84db892, type: 2}
   misDropDistance: 2
   maxDropDistance: 3
 --- !u!114 &3985482203627466829
@@ -106,17 +105,3 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &3880422668143245610
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5583458144222902370}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e766e03b39ab533418b22b1fb2fcd180, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  item: {fileID: 11400000, guid: 3ddb832ed3538704d92a4122a84db892, type: 2}
-  quantity: 0

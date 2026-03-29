@@ -2,18 +2,27 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ItemDictionary : MonoBehaviour
+[CreateAssetMenu(menuName = "Inventory/ItemDictionary")]
+public class ItemDictionary : ScriptableObject
 {
-    public List<ItemData> itemDataList; // 在 Inspector 里配置
+    public List<Item> items; // 在Inspector里配置
 
-    public ItemData GetItemData(int itemID)
+    private Dictionary<int, Item> itemsDict;
+
+    private void OnEnable()
     {
-        return itemDataList.Find(i => i.itemID == itemID);
+        itemsDict = new Dictionary<int, Item>();
+        foreach (var item in items)
+        {
+            if (item != null && !itemsDict.ContainsKey(item.ID))
+                itemsDict.Add(item.ID, item);
+        }
     }
 
-    public GameObject GetItemPrefab(int itemID)
+    public Item GetItemByID(int id)
     {
-        var data = GetItemData(itemID);
-        return data != null ? data.prefab3D : null;
+        if (itemsDict != null && itemsDict.ContainsKey(id))
+            return itemsDict[id];
+        return null;
     }
 }

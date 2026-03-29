@@ -61,7 +61,7 @@ public class CharacterControl_Cooking : MonoBehaviour
         {
             mainCameraTransform = Camera.main.transform;
         }
-        buildingSystem = FindObjectOfType<Building>();
+        buildingSystem = Object.FindFirstObjectByType<Building>();
     }
 
     void Update()

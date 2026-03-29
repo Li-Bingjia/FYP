@@ -13,6 +13,8 @@ GameObject:
   - component: {fileID: 3096786006331971221}
   - component: {fileID: 5991158284170917541}
   - component: {fileID: 6068025734793778023}
+  - component: {fileID: 8973578473550153832}
+  - component: {fileID: 7900450671670841664}
   m_Layer: 0
   m_Name: Reward
   m_TagString: Untagged
@@ -33,7 +35,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: -1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &619351164386157144
 MeshFilter:
@@ -119,3 +121,31 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   value: 5
+--- !u!114 &8973578473550153832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4493574728114017559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef05cd3d75afdab4786d917cdb5b3e7a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  objectiveID: 3
+  item: {fileID: 11400000, guid: 2524b116ff6863f4e9e86807677028a2, type: 2}
+--- !u!114 &7900450671670841664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4493574728114017559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e766e03b39ab533418b22b1fb2fcd180, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  item: {fileID: 11400000, guid: 2524b116ff6863f4e9e86807677028a2, type: 2}
+  quantity: 0

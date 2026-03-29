@@ -7,7 +7,7 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 {
     Transform originalParent;
     CanvasGroup canvasGroup;
-    public ItemData itemData; // 只挂数据
+    public Item item; // 只挂Item
 
     public float misDropDistance = 2f;
     public float maxDropDistance = 3f;
@@ -97,20 +97,23 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         dropOffset = dropOffset.normalized * Random.Range(misDropDistance, maxDropDistance);
         Vector3 dropPosition = playerTransform.position + dropOffset;
 
-        // 生成3D物体（通过itemData）
-        if (itemData != null && itemData.prefab3D != null)
+        // 检查item和item.prefab3D
+        if (item == null)
         {
-            GameObject obj = Instantiate(itemData.prefab3D, dropPosition, Quaternion.identity);
-            var questItem = obj.AddComponent<QuestItem3D>();
-            // 这里假设 itemData 有 itemID 字段，或者你自己传递
-            questItem.Init(itemData.itemName); // 或 itemData.id 或 objectiveID
-            var spin = obj.GetComponent<GemSpin>();
-            if (spin != null)
-                spin.itemData = itemData;
+            Debug.LogError($"[ItemDragHandler] item为null！请检查UI物品生成时是否正确赋值item字段。物品名:{gameObject.name}");
+        }
+        else if (item.prefab3D == null)
+        {
+            Debug.LogError($"[ItemDragHandler] item.prefab3D为null！请检查Item ScriptableObject的Prefab 3D字段是否赋值。物品名:{item.itemName}");
         }
         else
         {
-            Debug.LogError("itemData或itemData.prefab3D未设置！");
+            GameObject obj = Instantiate(item.prefab3D, dropPosition, Quaternion.identity);
+            var questItem = obj.AddComponent<QuestItem3D>();
+            questItem.Init(item.itemName, item);
+            var spin = obj.GetComponent<GemSpin>();
+            if (spin != null)
+                spin.item = item;
         }
         Destroy(gameObject);
         StockController.Instance.RebuildItemCounts();

@@ -37,14 +37,11 @@ public class RewardsController : MonoBehaviour
 
     public void GiveItemReward(int itemID, int amount)
     {
-        var itemData = FindAnyObjectByType<ItemDictionary>()?.GetItemData(itemID);
-        if(itemData == null) return;
+        var item = FindAnyObjectByType<ItemDictionary>()?.GetItemByID(itemID);
+        if(item == null) return;
         for(int i = 0; i < amount; i++)
         {
-            StockController.Instance.AddItemToStock(itemData);
-            // 如果背包满了，可以考虑掉落到场景
-            // GameObject droppedItem = Instantiate(itemData.prefab3D, transform.position + Vector3.down, Quaternion.identity);
-            // droppedItem.GetComponent<BounceEffect>()?.StartBounce();
+            StockController.Instance.AddItemToStock(item);
         }
     }
 }

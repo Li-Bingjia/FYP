@@ -6,7 +6,7 @@ public class GridVisualizer : MonoBehaviour
 {
     public int gridWidth = 10;
     public int gridHeight = 10;
-    public float cellSize = 0.5f;
+    public float cellSize = 2.0f;
     public Vector3 gridOrigin = new Vector3(-2.5f, 0, -2.5f);
     public Color lineColor = Color.white;
 
@@ -14,7 +14,6 @@ public class GridVisualizer : MonoBehaviour
     {
         RedrawGrid();
     }
-
     public void RedrawGrid()
     {
         // 清理旧线
@@ -55,5 +54,31 @@ public class GridVisualizer : MonoBehaviour
         lr.startColor = lineColor;
         lr.endColor = lineColor;
         lr.useWorldSpace = true;
+    }
+    public void UpdateGridToCamera(Camera cam)
+    {
+        Plane ground = new Plane(Vector3.up, Vector3.zero);
+        Vector3[] corners = new Vector3[4];
+        for (int i = 0; i < 4; i++)
+        {
+            Ray ray = cam.ViewportPointToRay(new Vector3(i % 2, i / 2, 0));
+            if (ground.Raycast(ray, out float enter) && enter > 0)
+                corners[i] = ray.GetPoint(enter);
+            else
+                // 没有交点时，取摄像机前方很远的地面点
+                corners[i] = cam.transform.position + cam.transform.forward * 100f;
+                corners[i].y = 0;
+        }
+        // 后续计算同前
+        float minX = Mathf.Min(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+        float maxX = Mathf.Max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+        float minZ = Mathf.Min(corners[0].z, corners[1].z, corners[2].z, corners[3].z);
+        float maxZ = Mathf.Max(corners[0].z, corners[1].z, corners[2].z, corners[3].z);
+
+        gridOrigin = new Vector3(minX, 0, minZ);
+        gridWidth = Mathf.CeilToInt((maxX - minX) / cellSize);
+        gridHeight = Mathf.CeilToInt((maxZ - minZ) / cellSize);
+
+        RedrawGrid();
     }
 }
