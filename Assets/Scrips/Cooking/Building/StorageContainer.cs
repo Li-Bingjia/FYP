@@ -2,22 +2,32 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+[System.Serializable]
+public class StorageSaveData
+{
+    public List<int> itemIDs = new();
+}
+
 public class StorageContainer : MonoBehaviour
 {
     [Header("Storage Settings")]
-    public List<GameObject> storedItems = new List<GameObject>();
+    public List<Item> storedItems = new List<Item>();
     [SerializeField] private int maxCapacity = 10;
     [SerializeField] private float dropDistance = 0.8f;
-    
+    public static StorageContainer CurrentOpenContainer { get; set; }
+
     private Vector3 originalScale;
     private bool isPlayerInRange;
     private InGameUIManager uiManager;
     private Collider myCollider;
 
+    // 需要在Inspector拖入所有Item资源（和背包allItems类似）
+    public Item[] allItems;
+
     void Awake()
     {
         originalScale = transform.localScale;
-        myCollider = GetComponent<Collider>(); 
+        myCollider = GetComponent<Collider>();
     }
 
     void Start()
@@ -27,27 +37,25 @@ public class StorageContainer : MonoBehaviour
 
     void Update()
     {
+        // 关闭储物柜时清空CurrentOpenContainer
         if (StorageUIController.Instance != null && StorageUIController.Instance.storagePanel.activeSelf)
         {
             if (Input.GetKeyDown(KeyCode.E))
             {
                 StorageUIController.Instance.CloseStorage();
+                CurrentOpenContainer = null;
             }
-            return; 
+            return;
         }
 
+        // 打开储物柜
         if (isPlayerInRange && Input.GetKeyDown(KeyCode.E))
         {
             if (StorageUIController.Instance != null)
             {
-                List<Item> itemList = new List<Item>();
-                foreach (var go in storedItems)
-                {
-                    var itemBehaviour = go.GetComponent<ItemBehaviour>();
-                    if (itemBehaviour != null && itemBehaviour.item != null)
-                        itemList.Add(itemBehaviour.item);
-                }
-                StorageUIController.Instance.OpenStorage(itemList);
+                CurrentOpenContainer = this;
+                LoadStorage(); // 打开时自动加载
+                StorageUIController.Instance.OpenStorage();
             }
         }
     }
@@ -62,12 +70,11 @@ public class StorageContainer : MonoBehaviour
         }
 
         // 物品放入逻辑
-        if (other.gameObject.layer == LayerMask.NameToLayer("Pickable") && storedItems.Count < maxCapacity)
+        Item item = other.GetComponent<ItemBehaviour>()?.item;
+        if (item != null && storedItems.Count < maxCapacity)
         {
-            if (other.attachedRigidbody != null)
-            {
-                AddItem(other.gameObject);
-            }
+            AddItem(item);
+            other.gameObject.SetActive(false); // 物理物品消失
         }
     }
 
@@ -84,40 +91,31 @@ public class StorageContainer : MonoBehaviour
         }
     }
 
-    private void AddItem(GameObject item)
+    public void AddItem(Item item)
     {
-        storedItems.Add(item);
-        item.SetActive(false); 
-        
-        item.transform.SetParent(transform); 
-        item.transform.localPosition = Vector3.zero;
-
-        StartCoroutine(PlayBounceEffect());
+        if (storedItems.Count < maxCapacity)
+        {
+            storedItems.Add(item);
+            StartCoroutine(PlayBounceEffect());
+        }
     }
 
     public void RemoveItem(int index)
     {
         if (index >= 0 && index < storedItems.Count)
         {
-            GameObject item = storedItems[index];
+            Item item = storedItems[index];
             storedItems.RemoveAt(index);
-            
-            item.SetActive(true);
-            item.transform.SetParent(null);
 
-            float itemRadius = 0.3f;
-            Collider itemCol = item.GetComponent<Collider>();
-            if (itemCol != null) itemRadius = itemCol.bounds.extents.x;
-
-            item.transform.position = CalculateDropPosition(itemRadius);
-            
-            Rigidbody rb = item.GetComponent<Rigidbody>();
-            if (rb)
+            // 这里可以实例化物理物品到场景
+            if (item.prefab3D != null)
             {
-                rb.isKinematic = false;
-                rb.useGravity = true;
-                rb.velocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                Vector3 dropPos = CalculateDropPosition(0.3f);
+                GameObject obj = Instantiate(item.prefab3D, dropPos, Quaternion.identity);
+                // 可选：给 obj 添加 ItemBehaviour 并赋值 item
+                var behaviour = obj.GetComponent<ItemBehaviour>();
+                if (behaviour != null)
+                    behaviour.item = item;
             }
         }
     }
@@ -127,8 +125,8 @@ public class StorageContainer : MonoBehaviour
         float randomAngle = Random.Range(0f, 360f);
         Vector3 randomDir = Quaternion.Euler(0, randomAngle, 0) * Vector3.forward;
         Vector3 spawnPos = transform.position + (randomDir * (dropDistance + itemRadius));
-        
-        if (myCollider != null) spawnPos.y = myCollider.bounds.center.y; 
+
+        if (myCollider != null) spawnPos.y = myCollider.bounds.center.y;
         else spawnPos.y = transform.position.y + 0.5f;
 
         return spawnPos;
@@ -137,18 +135,18 @@ public class StorageContainer : MonoBehaviour
     private IEnumerator PlayBounceEffect()
     {
         float duration = 0.15f;
-        Vector3 targetScale = originalScale * 1.1f; 
-        
+        Vector3 targetScale = originalScale * 1.1f;
+
         float elapsed = 0;
-        while(elapsed < duration)
+        while (elapsed < duration)
         {
             transform.localScale = Vector3.Lerp(originalScale, targetScale, elapsed / duration);
             elapsed += Time.deltaTime;
             yield return null;
         }
-        
+
         elapsed = 0;
-        while(elapsed < duration)
+        while (elapsed < duration)
         {
             transform.localScale = Vector3.Lerp(targetScale, originalScale, elapsed / duration);
             elapsed += Time.deltaTime;
@@ -160,5 +158,34 @@ public class StorageContainer : MonoBehaviour
     public bool IsEmpty()
     {
         return storedItems.Count == 0;
+    }
+
+    // ====== 储存与加载功能 ======
+    private string GetSaveKey() => $"Storage_{gameObject.GetInstanceID()}";
+
+    public void SaveStorage()
+    {
+        List<int> ids = new();
+        foreach (var item in storedItems)
+            ids.Add(item.ID);
+        string json = JsonUtility.ToJson(new StorageSaveData { itemIDs = ids });
+        PlayerPrefs.SetString(GetSaveKey(), json);
+        PlayerPrefs.Save();
+    }
+
+    public void LoadStorage()
+    {
+        storedItems.Clear();
+        string key = GetSaveKey();
+        if (PlayerPrefs.HasKey(key))
+        {
+            string json = PlayerPrefs.GetString(key);
+            StorageSaveData data = JsonUtility.FromJson<StorageSaveData>(json);
+            foreach (int id in data.itemIDs)
+            {
+                if (allItems != null && id >= 0 && id < allItems.Length && allItems[id] != null)
+                    storedItems.Add(allItems[id]);
+            }
+        }
     }
 }

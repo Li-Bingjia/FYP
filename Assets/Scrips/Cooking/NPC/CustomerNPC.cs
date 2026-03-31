@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.UI;
@@ -9,39 +8,28 @@ public class CustomerNPC : MonoBehaviour
     public enum State { MovingToSeat, Sitting, WaitingForFood, Eating, Leaving }
     public State currentState;
 
-    [Header("Settings")]
+    [Header("NPC Settings")]
     public string wantedDishName = "Steak";
     public int dishPrice = 20;
     public GameObject coinPrefab;
-    [Tooltip("NPC Movement Speed")]
     public float moveSpeed = 2.0f;
 
-    [Header("UI")]
-    public GameObject orderBubble;
-    public Image dishIcon;
-
-    [Header("Reaction Feedback")]
-    [Tooltip("The root object for the reaction bubble")]
-    public GameObject reactionBubbleRoot;
-    [Tooltip("Visual for normal food reaction (Recommendation: Use RawImage with VideoPlayer)")]
-    public GameObject normalReactionVisual;
-    [Tooltip("Visual for special food reaction (Recommendation: Use RawImage with VideoPlayer)")]
-    public GameObject specialReactionVisual;
-
+    [Header("Slot Bubble UI")]
+    public GameObject slotBubblePrefab; 
+    public Sprite wantedDishIcon;
+    public GameObject happyVideoObj;   
+    public GameObject specialVideoObj;
+    private GameObject slotBubbleInstance;
+    private Image slotIconImage;
+    private Transform bubbleFollowTarget;
+    private VideoPlayer happyVideo;
+    private VideoPlayer specialVideo;
     private NavMeshAgent agent;
     private DiningChair targetChair;
     private Vector3 exitPosition;
-
     private GameObject currentFood;
-
-    private Building buildingSystem;
-    private bool wasInBuildMode = false;
-    private Vector3 initialTargetChairPos;
-
-    private Camera mainCamera;
-
-    // 新增：Animator引用
     private Animator animator;
+    private Camera mainCamera;
 
     public void Initialize(DiningChair chair, Vector3 exitPos, string dish, int price, Sprite icon)
     {
@@ -49,361 +37,175 @@ public class CustomerNPC : MonoBehaviour
         exitPosition = exitPos;
         wantedDishName = dish;
         dishPrice = price;
-
+        wantedDishIcon = icon;
         targetChair.isOccupied = true;
-
-        initialTargetChairPos = targetChair.transform.position;
-
-        if (dishIcon != null) dishIcon.sprite = icon;
-        if (orderBubble != null) orderBubble.SetActive(false);
-        if (reactionBubbleRoot != null) reactionBubbleRoot.SetActive(false);
     }
 
     void Start()
     {
         mainCamera = Camera.main;
-
         agent = GetComponent<NavMeshAgent>();
-        if (agent != null)
-        {
-            agent.speed = moveSpeed;
-        }
-
-        buildingSystem = FindFirstObjectByType<Building>();
-
-        currentState = State.MovingToSeat;
-
-        Vector3 seatPos = targetChair.transform.position;
-        agent.SetDestination(seatPos);
-
-        // 新增：获取Animator
+        if (agent != null) agent.speed = moveSpeed;
         animator = GetComponent<Animator>();
+        currentState = State.MovingToSeat;
+        agent.SetDestination(targetChair.transform.position);
+
+        // 创建slot气泡
+        slotBubbleInstance = Instantiate(slotBubblePrefab, transform);
+        slotIconImage = slotBubbleInstance.GetComponentInChildren<Image>();
+        slotBubbleInstance.SetActive(false);
+        bubbleFollowTarget = transform; // 可自定义为头部骨骼等
+
+        // 初始化视频组件
+        if (happyVideoObj != null)
+            happyVideo = happyVideoObj.GetComponent<VideoPlayer>();
+        if (specialVideoObj != null)
+            specialVideo = specialVideoObj.GetComponent<VideoPlayer>();
     }
 
     void LateUpdate()
     {
-        if (mainCamera == null) return;
-
-        if (orderBubble != null && orderBubble.activeInHierarchy)
+        // 气泡UI始终朝向摄像机
+        if (slotBubbleInstance != null && mainCamera != null)
         {
-            orderBubble.transform.rotation = mainCamera.transform.rotation;
-        }
-
-        if (reactionBubbleRoot != null && reactionBubbleRoot.activeInHierarchy)
-        {
-            reactionBubbleRoot.transform.rotation = mainCamera.transform.rotation;
+            slotBubbleInstance.transform.position = bubbleFollowTarget.position + Vector3.up * 2.0f;
+            slotBubbleInstance.transform.rotation = Quaternion.LookRotation(slotBubbleInstance.transform.position - mainCamera.transform.position);
         }
     }
 
     void Update()
     {
-        // 动画：走路速度
         if (animator != null && agent != null)
-        {
             animator.SetFloat("MovingSpeed", agent.velocity.magnitude);
-        }
-
-        if (buildingSystem != null && buildingSystem.isBuildMode)
-        {
-            if (!wasInBuildMode)
-            {
-                wasInBuildMode = true;
-                if (agent.enabled) agent.isStopped = true;
-            }
-            return;
-        }
-        else if (wasInBuildMode)
-        {
-            wasInBuildMode = false;
-            if (agent.enabled) agent.isStopped = false;
-
-            if (currentState == State.MovingToSeat)
-            {
-                if (Vector3.Distance(targetChair.transform.position, initialTargetChairPos) > 0.1f)
-                {
-                    FindNearestNewSeat();
-                }
-                else
-                {
-                    agent.SetDestination(targetChair.transform.position);
-                }
-            }
-        }
 
         if (currentState == State.MovingToSeat)
         {
-            float dist = Vector3.Distance(transform.position, targetChair.transform.position);
-
-            if (!agent.pathPending && dist < 1f && (agent.remainingDistance < 0.2f || agent.velocity.sqrMagnitude < 0.01f))
-            {
+            if (!agent.pathPending && Vector3.Distance(transform.position, targetChair.transform.position) < 1f)
                 OnSitDown();
-            }
         }
         else if (currentState == State.Leaving)
         {
             if (!agent.pathPending && agent.remainingDistance < 0.2f)
-            {
                 Destroy(gameObject);
-            }
-        }
-    }
-
-    private void FindNearestNewSeat()
-    {
-        targetChair.isOccupied = false;
-
-        float closestDist = float.MaxValue;
-        DiningChair bestChair = null;
-        DiningChair[] allChairs = FindObjectsByType<DiningChair>(FindObjectsSortMode.None);
-
-        foreach (var chair in allChairs)
-        {
-            if (!chair.isOccupied && chair.HasTableNearby())
-            {
-                float d = Vector3.Distance(transform.position, chair.transform.position);
-                if (d < closestDist)
-                {
-                    closestDist = d;
-                    bestChair = chair;
-                }
-            }
-        }
-
-        if (bestChair != null)
-        {
-            targetChair = bestChair;
-            targetChair.isOccupied = true;
-            initialTargetChairPos = targetChair.transform.position;
-            agent.SetDestination(targetChair.transform.position);
-        }
-        else
-        {
-            LeaveRestaurant();
         }
     }
 
     private void OnSitDown()
     {
         currentState = State.Sitting;
-
-        if (agent.enabled)
-        {
-            agent.isStopped = true;
-            agent.enabled = false;
-        }
-
-        // 动画：坐下
-        if (animator != null)
-            animator.SetBool("Sit", true);
-
-        StartCoroutine(SmoothSitDownRoutine());
-    }
-
-    IEnumerator SmoothSitDownRoutine()
-    {
-        float duration = 0.5f;
-        float elapsed = 0f;
-
-        Vector3 startPos = transform.position;
-        Quaternion startRot = transform.rotation;
-        Vector3 targetPos = targetChair.transform.position + Vector3.up * 0.15f;
-        Quaternion targetRot = targetChair.transform.rotation;
-
-        if (targetChair.linkedTable != null)
-        {
-            Vector3 lookDir = targetChair.linkedTable.transform.position - targetPos;
-            lookDir.y = 0;
-            if (lookDir != Vector3.zero)
-                targetRot = Quaternion.LookRotation(lookDir);
-        }
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            t = Mathf.Sin(t * Mathf.PI * 0.5f);
-
-            transform.position = Vector3.Lerp(startPos, targetPos, t);
-            transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
-            yield return null;
-        }
-
-        transform.position = targetPos;
-        transform.rotation = targetRot;
-
-        if (targetChair.linkedTable != null)
-            targetChair.linkedTable.AddCustomer(this);
-
+        agent.isStopped = true;
+        agent.enabled = false;
+        if (animator != null) animator.SetBool("Sit", true);
         StartCoroutine(WaitAndOrderRoutine());
     }
 
-    IEnumerator WaitAndOrderRoutine()
+    System.Collections.IEnumerator WaitAndOrderRoutine()
     {
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSeconds(1f);
         if (currentState == State.Sitting)
         {
             currentState = State.WaitingForFood;
-            if (orderBubble != null) orderBubble.SetActive(true);
+            ShowOrderSlot();
         }
     }
 
-    public void ReceiveFood(GameObject food)
+    void ShowOrderSlot()
     {
-        if (currentState != State.WaitingForFood && currentState != State.Sitting) return;
-
-        if (orderBubble != null) orderBubble.SetActive(false);
-
-        currentFood = food;
-
-        if (currentFood.TryGetComponent<Rigidbody>(out Rigidbody rb)) rb.isKinematic = true;
-        if (currentFood.TryGetComponent<Collider>(out Collider col)) col.enabled = false;
-
-        StartCoroutine(EatRoutine());
+        if (slotBubbleInstance != null && slotIconImage != null)
+        {
+            slotBubbleInstance.SetActive(true);
+            slotIconImage.sprite = wantedDishIcon;
+            slotIconImage.color = Color.white;
+        }
     }
 
-    IEnumerator EatRoutine()
+    // 玩家给菜
+    public void ReceiveFood(GameObject food, Sprite foodIcon, bool isSpecial = false)
+    {
+        if (currentState != State.WaitingForFood && currentState != State.Sitting) return;
+        currentFood = food;
+        if (currentFood.TryGetComponent<Rigidbody>(out var rb)) rb.isKinematic = true;
+        if (currentFood.TryGetComponent<Collider>(out var col)) col.enabled = false;
+
+        // slot显示收到的菜
+        if (slotIconImage != null)
+        {
+            slotIconImage.sprite = foodIcon;
+            slotIconImage.color = Color.white;
+        }
+
+        StartCoroutine(EatRoutine(isSpecial));
+    }
+
+    System.Collections.IEnumerator EatRoutine(bool isSpecial)
     {
         currentState = State.Eating;
-
-        // 动画：吃饭
-        if (animator != null)
-            animator.SetTrigger("Eat");
-
+        if (animator != null) animator.SetTrigger("Eat");
         yield return new WaitForSeconds(1.0f);
-        ShowFoodReaction();
 
-        yield return new WaitForSeconds(9.0f);
+        if (slotIconImage != null) slotIconImage.enabled = false;
 
-        if (reactionBubbleRoot != null) reactionBubbleRoot.SetActive(false);
+        if (isSpecial && specialVideoObj != null)
+        {
+            specialVideoObj.SetActive(true);
+            specialVideo.Play();
+        }
+        else if (!isSpecial && happyVideoObj != null)
+        {
+            happyVideoObj.SetActive(true);
+            happyVideo.Play();
+        }
+
+        yield return new WaitForSeconds(2.0f);
+
+        if (happyVideoObj != null) happyVideoObj.SetActive(false);
+        if (specialVideoObj != null) specialVideoObj.SetActive(false);
+        if (slotIconImage != null) slotIconImage.enabled = true;
+        slotBubbleInstance.SetActive(false);
 
         LeaveMoney();
         LeaveRestaurant();
     }
-
-    private void ShowFoodReaction()
-    {
-        if (reactionBubbleRoot == null) return;
-
-        bool isSpecial = false;
-        if (currentFood != null && currentFood.GetComponentInChildren<Light>() != null)
-        {
-            isSpecial = true;
-        }
-
-        reactionBubbleRoot.SetActive(true);
-
-        GameObject activeVisual = null;
-
-        if (normalReactionVisual != null)
-        {
-            bool isActive = !isSpecial;
-            normalReactionVisual.SetActive(isActive);
-            if (isActive) activeVisual = normalReactionVisual;
-        }
-
-        if (specialReactionVisual != null)
-        {
-            bool isActive = isSpecial;
-            specialReactionVisual.SetActive(isActive);
-            if (isActive) activeVisual = specialReactionVisual;
-        }
-
-        if (activeVisual != null)
-        {
-            VideoPlayer vp = activeVisual.GetComponent<VideoPlayer>();
-            RawImage rawImage = activeVisual.GetComponent<RawImage>();
-
-            if (vp != null)
-            {
-                vp.Play();
-
-                if (rawImage != null && vp.renderMode == VideoRenderMode.APIOnly)
-                {
-                    StartCoroutine(BindVideoTexture(vp, rawImage));
-                }
-            }
-        }
-    }
-
-    private IEnumerator BindVideoTexture(VideoPlayer vp, RawImage image)
-    {
-        while (!vp.isPrepared)
-        {
-            yield return null;
-        }
-        image.texture = vp.texture;
-    }
-
-    private void LeaveMoney()
+    void LeaveMoney()
     {
         if (coinPrefab != null && targetChair.linkedTable != null)
         {
-            float spawnY = targetChair.linkedTable.transform.position.y + 0.8f;
-            Collider tableCol = targetChair.linkedTable.GetComponentInChildren<Collider>();
-            if (tableCol != null) spawnY = tableCol.bounds.max.y + 0.02f;
-
-            Vector3 spawnPos = targetChair.linkedTable.transform.position;
-            spawnPos.y = spawnY;
-
+            Vector3 spawnPos = targetChair.linkedTable.transform.position + Vector3.up * 0.8f;
             Instantiate(coinPrefab, spawnPos, coinPrefab.transform.rotation);
         }
     }
 
-    private void LeaveRestaurant()
+    void LeaveRestaurant()
     {
-        if (currentFood != null)
-        {
-            Destroy(currentFood);
-        }
-
+        if (currentFood != null) Destroy(currentFood);
         targetChair.isOccupied = false;
-
-        if (targetChair.linkedTable != null)
-            targetChair.linkedTable.RemoveCustomer(this);
-
-        // 动画：离开时取消坐下
-        if (animator != null)
-            animator.SetBool("Sit", false);
-
-        StartCoroutine(SmoothLeaveRoutine());
-    }
-
-    IEnumerator SmoothLeaveRoutine()
-    {
-        Vector3 targetNavPos = transform.position;
-        NavMeshHit hit;
-
-        if (NavMesh.SamplePosition(targetChair.transform.position, out hit, 2.0f, NavMesh.AllAreas))
-        {
-            targetNavPos = hit.position;
-        }
-
-        float duration = 0.5f;
-        float elapsed = 0f;
-        Vector3 startPos = transform.position;
-        Quaternion startRot = transform.rotation;
-
-        Vector3 dirToExit = (exitPosition - transform.position).normalized;
-        dirToExit.y = 0;
-        Quaternion targetRot = Quaternion.LookRotation(dirToExit);
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / duration;
-            t = Mathf.Sin(t * Mathf.PI * 0.5f);
-
-            transform.position = Vector3.Lerp(startPos, targetNavPos, t);
-            transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
-            yield return null;
-        }
-
-        transform.position = targetNavPos;
+        if (animator != null) animator.SetBool("Sit", false);
 
         agent.enabled = true;
         agent.isStopped = false;
         agent.SetDestination(exitPosition);
-
         currentState = State.Leaving;
+    }
+    public void OnPlayerDropFood(Sprite foodIcon, bool isSpecial)
+    {
+        // 判断是否是NPC想要的菜品
+        bool isWanted = (foodIcon == wantedDishIcon);
+
+        // 你可以根据业务逻辑自定义特殊菜品的判定
+        if (isWanted && !isSpecial)
+        {
+            // 正常投喂，happy反应
+            ReceiveFood(null, foodIcon, false);
+        }
+        else if (isSpecial)
+        {
+            // 特殊投喂，special反应
+            ReceiveFood(null, foodIcon, true);
+        }
+        else
+        {
+            // 不是想要的菜品且不是特殊菜品，可自定义无反应或不理会
+            // 例如弹出提示、无动画等
+        }
     }
 }

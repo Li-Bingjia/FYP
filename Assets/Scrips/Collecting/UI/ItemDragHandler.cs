@@ -7,14 +7,28 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 {
     Transform originalParent;
     CanvasGroup canvasGroup;
-    public Item item; // 只挂Item
-
+    public Item item; 
+    [Header("特殊属性")]
+    public bool isSpecial; 
     public float misDropDistance = 2f;
     public float maxDropDistance = 3f;
 
     void Start()
     {
         canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        }
+        RectTransform rt = GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.sizeDelta = new Vector2(100, 100);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+        }
     }
 
     public void OnBeginDrag(PointerEventData eventData)
@@ -35,6 +49,19 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         canvasGroup.blocksRaycasts = true;
         canvasGroup.alpha = 1f;
 
+        if (originalParent == null)
+        {
+            Debug.LogWarning("[ItemDragHandler] originalParent is null in OnEndDrag!");
+            return;
+        }
+
+        Slot originalSlot = originalParent.GetComponent<Slot>();
+        if (originalSlot == null)
+        {
+            Debug.LogWarning("[ItemDragHandler] originalSlot is null in OnEndDrag! originalParent=" + originalParent.name);
+            return;
+        }
+
         Slot dropSlot = eventData.pointerEnter?.GetComponent<Slot>();
         if (dropSlot == null)
         {
@@ -44,7 +71,6 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 dropSlot = dropItem.GetComponent<Slot>();
             }
         }
-        Slot originalSlot = originalParent.GetComponent<Slot>();
         if (dropSlot != null)
         {
             if (dropSlot.currentItem != null)
@@ -53,13 +79,11 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 originalSlot.currentItem = dropSlot.currentItem;
                 dropSlot.currentItem = null;
                 dropSlot.currentItem = gameObject;
-                GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
             }
             else
             {
                 originalSlot.currentItem = null;
                 dropSlot.currentItem = gameObject;
-                GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
             }
             transform.SetParent(dropSlot.transform);
         }
@@ -79,6 +103,11 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     bool IsWithinStock(Vector2 mousePosition)
     {
+        if (originalParent == null || originalParent.parent == null)
+        {
+            Debug.LogWarning("[ItemDragHandler] originalParent or its parent is null in IsWithinStock!");
+            return false;
+        }
         RectTransform stockRect = originalParent.parent.GetComponent<RectTransform>();
         return RectTransformUtility.RectangleContainsScreenPoint(stockRect, mousePosition);
     }
@@ -97,7 +126,6 @@ public class ItemDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         dropOffset = dropOffset.normalized * Random.Range(misDropDistance, maxDropDistance);
         Vector3 dropPosition = playerTransform.position + dropOffset;
 
-        // 检查item和item.prefab3D
         if (item == null)
         {
             Debug.LogError($"[ItemDragHandler] item为null！请检查UI物品生成时是否正确赋值item字段。物品名:{gameObject.name}");

@@ -7,16 +7,16 @@ public class StorageUIController : MonoBehaviour
     public static StorageUIController Instance { get; private set; }
 
     [Header("UI References")]
-    public GameObject storagePanel;           // 储物箱弹窗
-    public GameObject slotPrefab;             // 储物格Prefab
-    public RectTransform slotsRoot;           // 存放格子的父物体（挂GridLayoutGroup）
-    public int slotCount = 12;                // 格子数量
-    public Vector2 cellSize = new Vector2(100, 100); // 格子大小
-    public Vector2 spacing = new Vector2(10, 10);    // 格子间距
-    public GameObject[] itemUIPrefabs;        // UI物品Prefab，索引与Item.ID一致
+    public GameObject storagePanel;
+    public GameObject slotPrefab;
+    public RectTransform slotsRoot;
+    public int slotCount = 12;
+    public Vector2 cellSize = new Vector2(100, 100);
+    public Vector2 spacing = new Vector2(10, 10);
+    public GameObject[] itemUIPrefabs;
+    public Item[] allItems; // 在Inspector拖入所有Item资源
 
     private List<Slot> slots = new();
-    private List<Item> storedItems = new();
 
     public event System.Action OnStorageChanged;
 
@@ -25,94 +25,103 @@ public class StorageUIController : MonoBehaviour
         Instance = this;
         storagePanel.SetActive(false);
 
-        // 自动设置GridLayoutGroup参数
         var grid = slotsRoot.GetComponent<GridLayoutGroup>();
         if (grid != null)
         {
             grid.cellSize = cellSize;
             grid.spacing = spacing;
         }
-    }
 
-    public void OpenStorage(List<Item> items)
-    {
-        storagePanel.SetActive(true);
-        storedItems = new List<Item>(items);
-        RefreshUI();
-    }
-
-    public void CloseStorage()
-    {
-        storagePanel.SetActive(false);
-    }
-
-    void RefreshUI()
-    {
-        // 清空旧格子
-        foreach (Transform child in slotsRoot)
-            Destroy(child.gameObject);
-        slots.Clear();
-
-        // 生成新格子
         for (int i = 0; i < slotCount; i++)
         {
             var slotObj = Instantiate(slotPrefab, slotsRoot);
             var slot = slotObj.GetComponent<Slot>();
             slots.Add(slot);
+            slot.currentItem = null;
+        }
+    }
 
-            if (i < storedItems.Count)
+    public void OpenStorage()
+    {
+        if (StorageContainer.CurrentOpenContainer != null)
+            StorageContainer.CurrentOpenContainer.LoadStorage();
+
+        storagePanel.SetActive(true);
+        RefreshUI();
+    }
+
+    public void CloseStorage()
+    {
+        if (StorageContainer.CurrentOpenContainer != null)
+            StorageContainer.CurrentOpenContainer.SaveStorage();
+
+        storagePanel.SetActive(false);
+    }
+
+    void RefreshUI()
+    {
+        List<Item> storedItems = new List<Item>();
+        if (StorageContainer.CurrentOpenContainer != null)
+        {
+            storedItems = StorageContainer.CurrentOpenContainer.storedItems;
+        }
+
+        // 先清空所有slot下的UI物体
+        foreach (var slot in slots)
+        {
+            for (int i = slot.transform.childCount - 1; i >= 0; i--)
             {
-                int prefabIndex = storedItems[i].ID;
-                if (prefabIndex >= 0 && prefabIndex < itemUIPrefabs.Length && itemUIPrefabs[prefabIndex] != null)
-                {
-                    var itemObj = Instantiate(itemUIPrefabs[prefabIndex], slotObj.transform);
-                    var drag = itemObj.GetComponent<ItemDragHandler>() ?? itemObj.AddComponent<ItemDragHandler>();
-                    drag.item = storedItems[i];
-                    slot.currentItem = itemObj;
-                }
-                else
-                {
-                    Debug.LogError($"itemUIPrefabs数组未正确配置，ID={prefabIndex} 超出范围或Prefab为null！");
-                }
+                Destroy(slot.transform.GetChild(i).gameObject);
+            }
+            slot.currentItem = null;
+        }
+
+        // 重新生成UI物品
+        for (int i = 0; i < storedItems.Count && i < slots.Count; i++)
+        {
+            var item = storedItems[i];
+            if (item == null || item.ID < 0) continue;
+            int prefabIndex = item.ID - 1;
+            if (prefabIndex >= 0 && prefabIndex < itemUIPrefabs.Length && itemUIPrefabs[prefabIndex] != null)
+            {
+                var itemObj = Instantiate(itemUIPrefabs[prefabIndex], slots[i].transform);
+                slots[i].currentItem = itemObj;
+
+                var drag = itemObj.GetComponent<ItemDragHandler>() ?? itemObj.AddComponent<ItemDragHandler>();
+                drag.item = item;
+
+                var img = itemObj.GetComponent<UnityEngine.UI.Image>();
+                if (img != null && item.icon != null)
+                    img.sprite = item.icon;
             }
         }
     }
 
-    public void MoveItemToStock(int slotIndex)
-    {
-        if (slotIndex < 0 || slotIndex >= storedItems.Count) return;
-        var item = storedItems[slotIndex];
-        StockController.Instance.AddItemToStock(item);
-        storedItems.RemoveAt(slotIndex);
-        RefreshUI();
-        OnStorageChanged?.Invoke();
-    }
-
-    public void DropItemToWorld(int slotIndex, Vector3 worldPos)
-    {
-        if (slotIndex < 0 || slotIndex >= storedItems.Count) return;
-        var item = storedItems[slotIndex];
-        var prefab = itemUIPrefabs[item.ID];
-        Instantiate(prefab, worldPos, Quaternion.identity);
-        storedItems.RemoveAt(slotIndex);
-        RefreshUI();
-        OnStorageChanged?.Invoke();
-    }
-
-    public void AddItemFromWorld(Item item)
-    {
-        if (storedItems.Count >= slotCount) return;
-        storedItems.Add(item);
-        RefreshUI();
-        OnStorageChanged?.Invoke();
-    }
-
-    public List<Item> GetStoredItems() => storedItems;
     public void RemoveItemFromStorage(int slotIndex)
     {
-        if (slotIndex < 0 || slotIndex >= storedItems.Count) return;
-        storedItems.RemoveAt(slotIndex);
+        if (StorageContainer.CurrentOpenContainer == null) return;
+        StorageContainer.CurrentOpenContainer.RemoveItem(slotIndex);
         RefreshUI();
         OnStorageChanged?.Invoke();
+        if (StorageContainer.CurrentOpenContainer != null)
+            StorageContainer.CurrentOpenContainer.SaveStorage();
+    }
+
+    public void AddItemToStorage(Item item)
+    {
+        if (StorageContainer.CurrentOpenContainer == null) return;
+        if (item == null) return; // 防止null
+        StorageContainer.CurrentOpenContainer.AddItem(item);
+        RefreshUI();
+        OnStorageChanged?.Invoke();
+        if (StorageContainer.CurrentOpenContainer != null)
+            StorageContainer.CurrentOpenContainer.SaveStorage();
+    }
+
+    public List<Item> GetStoredItems()
+    {
+        if (StorageContainer.CurrentOpenContainer != null)
+            return StorageContainer.CurrentOpenContainer.storedItems;
+        return new List<Item>();
     }
 }

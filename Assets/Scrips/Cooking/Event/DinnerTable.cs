@@ -40,10 +40,10 @@ public class DiningTable : MonoBehaviour
 
             if (customer.currentState == CustomerNPC.State.WaitingForFood || customer.currentState == CustomerNPC.State.Sitting)
             {
-    
                 if (item.name.Contains(customer.wantedDishName))
                 {
-                    customer.ReceiveFood(item);
+                    // 这里补全参数
+                    customer.ReceiveFood(item, customer.wantedDishIcon, false);
                     return; 
                 }
             }

@@ -14,26 +14,32 @@ public class StockController : MonoBehaviour
     Dictionary<int, int> itemsCountCache = new();
     public event Action OnStockChanged;
 
-    void Start()
+    // 新增：用于还原Item对象
+    public Item[] allItems; // 请在Inspector中配置，索引与ID一致
+
+    const string StockSaveKey = "StockSaveData";
+
+    [Serializable]
+    public class StockSaveData
+    {
+        public List<int> itemIDs = new();
+        public List<int> quantities = new();
+    }
+
+    void Awake()
     {
         Instance = this;
-        Debug.Log($"itemPerfabs == null? {itemPerfabs == null}, Length: {(itemPerfabs == null ? -1 : itemPerfabs.Length)}");
+    }
+
+    void Start()
+    {
+        // 初始化slot
         for (int i = 0; i < stockCount; i++)
         {
             Slot slot = Instantiate(slockPrefab, slotsRoot).GetComponent<Slot>();
-            Debug.Log($"生成Slot: {i}, 名称: {slot.gameObject.name}");
-
-            if (i < itemPerfabs.Length && itemPerfabs[i] != null)
-            {
-                GameObject itemObj = Instantiate(itemPerfabs[i], slot.transform);
-                itemObj.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
-                slot.currentItem = itemObj;
-            }
-            else
-            {
-                slot.currentItem = null;
-            }
+            slot.currentItem = null;
         }
+        LoadStock(); // 启动时自动加载
         RebuildItemCounts();
     }
 
@@ -94,6 +100,7 @@ public class StockController : MonoBehaviour
             }
         }
         RebuildItemCounts();
+        SaveStock(); // 自动保存
     }
 
     public void RemoveItemFromStock(int itemID, int amountToRemove)
@@ -114,6 +121,71 @@ public class StockController : MonoBehaviour
                     slot.currentItem = null;
                 }
             }
+        }
+        RebuildItemCounts();
+        SaveStock(); // 自动保存
+    }
+
+    // 保存仓库内容
+    public void SaveStock()
+    {
+        StockSaveData data = new();
+        foreach (Transform slotTransform in slotsRoot)
+        {
+            Slot slot = slotTransform.GetComponent<Slot>();
+            var itemBehaviour = slot.currentItem?.GetComponent<ItemBehaviour>();
+            if (itemBehaviour != null && itemBehaviour.item != null)
+            {
+                data.itemIDs.Add(itemBehaviour.item.ID);
+                data.quantities.Add(itemBehaviour.quantity);
+            }
+            else
+            {
+                data.itemIDs.Add(-1); // -1表示空
+                data.quantities.Add(0);
+            }
+        }
+        string json = JsonUtility.ToJson(data);
+        PlayerPrefs.SetString(StockSaveKey, json);
+        PlayerPrefs.Save();
+    }
+
+    // 加载仓库内容
+    public void LoadStock()
+    {
+        if (!PlayerPrefs.HasKey(StockSaveKey)) return;
+        string json = PlayerPrefs.GetString(StockSaveKey);
+        StockSaveData data = JsonUtility.FromJson<StockSaveData>(json);
+
+        // 清空现有slot
+        int slotIndex = 0;
+        foreach (Transform slotTransform in slotsRoot)
+        {
+            Slot slot = slotTransform.GetComponent<Slot>();
+            if (slot.currentItem != null)
+            {
+                Destroy(slot.currentItem);
+                slot.currentItem = null;
+            }
+            // 还原
+            if (slotIndex < data.itemIDs.Count && data.itemIDs[slotIndex] >= 0 && data.quantities[slotIndex] > 0)
+            {
+                int id = data.itemIDs[slotIndex];
+                int qty = data.quantities[slotIndex];
+                if (id >= 0 && id < itemPerfabs.Length && itemPerfabs[id] != null && allItems != null && id < allItems.Length && allItems[id] != null)
+                {
+                    GameObject itemObj = Instantiate(itemPerfabs[id], slot.transform);
+                    itemObj.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
+                    var itemBehaviour = itemObj.GetComponent<ItemBehaviour>();
+                    if (itemBehaviour != null)
+                    {
+                        itemBehaviour.item = allItems[id]; // 还原Item对象
+                        itemBehaviour.quantity = qty;
+                    }
+                    slot.currentItem = itemObj;
+                }
+            }
+            slotIndex++;
         }
         RebuildItemCounts();
     }

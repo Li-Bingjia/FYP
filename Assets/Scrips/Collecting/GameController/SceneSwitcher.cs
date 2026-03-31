@@ -17,9 +17,14 @@ public class SceneSwitcher : MonoBehaviour
 
     public void LoadSceneByName(string sceneName)
     {
+        // 切换前手动保存
+        if (BackpackUIController.Instance != null)
+            BackpackUIController.Instance.SaveBackpack();
+        if (StockController.Instance != null)
+            StockController.Instance.SaveStock();
+
         SceneManager.LoadScene(sceneName);   
     }
-
     // 或者用 Build Settings 中的索引切换（从 0 开始）
     public void LoadSceneByIndex(int buildIndex)
     {

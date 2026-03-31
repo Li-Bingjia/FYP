@@ -113,18 +113,17 @@ public class InGameUIManager : MonoBehaviour
         currentContainer = null;
     }
 
-    private void RefreshContentUI(List<GameObject> items)
+    private void RefreshContentUI(List<Item> items)
     {
         for (int i = 0; i < slotButtons.Length; i++)
         {
             if (i < items.Count)
             {
                 slotButtons[i].gameObject.SetActive(true);
-                slotButtons[i].GetComponentInChildren<TMPro.TMP_Text>().text = items[i].name;
-                
+                slotButtons[i].GetComponentInChildren<TMPro.TMP_Text>().text = items[i].itemName;
+
                 int index = i; 
                 slotButtons[i].onClick.RemoveAllListeners();
-                
                 slotButtons[i].onClick.AddListener(() => OnClickSlot(index));
             }
             else

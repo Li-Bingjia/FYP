@@ -9,12 +9,17 @@ public class Item : ScriptableObject
     public int ID;           // 唯一ID，Inspector赋值，任务系统用
     public string itemName;  // 名称
     public int quantity = 1; // 默认数量
-
+    [Header("特殊属性")]
+    public bool isSpecial = false; // 是否为特殊菜品
     [Header("描述与图标")]
     [TextArea]
     public string description;
     public Sprite icon;
     public GameObject prefab3D;
+
+    [Header("唯一标识")]
+    public string guid;      // 这里就是唯一GUID
+
     /// <summary>
     /// 从堆叠中移除指定数量
     /// </summary>

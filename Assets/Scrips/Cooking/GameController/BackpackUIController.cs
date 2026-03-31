@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+[System.Serializable]
+public class BackpackSaveData
+{
+    public List<int> itemIDs = new();
+}
+
 public class BackpackUIController : MonoBehaviour
 {
     public static BackpackUIController Instance { get; private set; }
@@ -15,11 +21,14 @@ public class BackpackUIController : MonoBehaviour
     public Vector2 cellSize = new Vector2(100, 100);
     public Vector2 spacing = new Vector2(10, 10);
     public GameObject[] itemUIPrefabs;       // UI物品Prefab，索引与Item.ID一致
+    public Item[] allItems;                  // 所有Item资源，索引与ID一致
 
     private List<Slot> slots = new();
     private List<Item> backpackItems = new();
 
     public event System.Action OnBackpackChanged;
+
+    const string BackpackSaveKey = "BackpackSaveData";
 
     void Awake()
     {
@@ -32,6 +41,18 @@ public class BackpackUIController : MonoBehaviour
             grid.cellSize = cellSize;
             grid.spacing = spacing;
         }
+
+        // 初始化格子
+        for (int i = 0; i < slotCount; i++)
+        {
+            var slotObj = Instantiate(slotPrefab, slotsRoot);
+            var slot = slotObj.GetComponent<Slot>();
+            slots.Add(slot);
+            slot.currentItem = null;
+        }
+
+        LoadBackpack();
+        RefreshUI();
     }
 
     void Update()
@@ -48,7 +69,6 @@ public class BackpackUIController : MonoBehaviour
     public void OpenBackpack()
     {
         backpackPanel.SetActive(true);
-        RefreshUI();
     }
 
     public void CloseBackpack()
@@ -58,30 +78,35 @@ public class BackpackUIController : MonoBehaviour
 
     void RefreshUI()
     {
-        foreach (Transform child in slotsRoot)
-            Destroy(child.gameObject);
-        slots.Clear();
-
-        for (int i = 0; i < slotCount; i++)
+        // 先清空所有slot的currentItem
+        foreach (var slot in slots)
         {
-            var slotObj = Instantiate(slotPrefab, slotsRoot);
-            var slot = slotObj.GetComponent<Slot>();
-            slots.Add(slot);
-
-            if (i < backpackItems.Count)
+            if (slot.currentItem != null)
             {
-                int prefabIndex = backpackItems[i].ID;
-                if (prefabIndex >= 0 && prefabIndex < itemUIPrefabs.Length && itemUIPrefabs[prefabIndex] != null)
-                {
-                    var itemObj = Instantiate(itemUIPrefabs[prefabIndex], slotObj.transform);
-                    var drag = itemObj.GetComponent<ItemDragHandler>() ?? itemObj.AddComponent<ItemDragHandler>();
-                    drag.item = backpackItems[i];
-                    slot.currentItem = itemObj;
-                }
-                else
-                {
-                    Debug.LogError($"itemUIPrefabs未配置，ID={prefabIndex} 超出范围或Prefab为null！");
-                }
+                Destroy(slot.currentItem);
+                slot.currentItem = null;
+            }
+        }
+
+        // 重新生成UI物品
+        for (int i = 0; i < backpackItems.Count && i < slots.Count; i++)
+        {
+            int prefabIndex = backpackItems[i].ID;
+            if (prefabIndex >= 0 && prefabIndex < itemUIPrefabs.Length && itemUIPrefabs[prefabIndex] != null)
+            {
+                var itemObj = Instantiate(itemUIPrefabs[prefabIndex], slots[i].transform);
+                var drag = itemObj.GetComponent<ItemDragHandler>() ?? itemObj.AddComponent<ItemDragHandler>();
+                drag.item = backpackItems[i];
+                slots[i].currentItem = itemObj;
+
+                // 强制设置icon
+                var img = itemObj.GetComponent<UnityEngine.UI.Image>();
+                if (img != null && backpackItems[i].icon != null)
+                    img.sprite = backpackItems[i].icon;
+            }
+            else
+            {
+                Debug.LogError($"itemUIPrefabs未配置，ID={prefabIndex} 超出范围或Prefab为null！");
             }
         }
     }
@@ -93,6 +118,7 @@ public class BackpackUIController : MonoBehaviour
         backpackItems.Add(item);
         RefreshUI();
         OnBackpackChanged?.Invoke();
+        SaveBackpack();
     }
 
     // 从背包栏移除（如拖到仓库或丢弃）
@@ -102,6 +128,7 @@ public class BackpackUIController : MonoBehaviour
         backpackItems.RemoveAt(slotIndex);
         RefreshUI();
         OnBackpackChanged?.Invoke();
+        SaveBackpack();
     }
 
     // 支持跨UI拖拽（如仓库⇄背包）
@@ -111,7 +138,33 @@ public class BackpackUIController : MonoBehaviour
         var item = backpackItems[slotIndex];
         addToOtherUI?.Invoke(item);
         RemoveItemFromBackpack(slotIndex);
+        SaveBackpack();
     }
 
     public List<Item> GetBackpackItems() => backpackItems;
+
+    public void SaveBackpack()
+    {
+        BackpackSaveData data = new();
+        foreach (var item in backpackItems)
+            data.itemIDs.Add(item.ID);
+        string json = JsonUtility.ToJson(data);
+        PlayerPrefs.SetString(BackpackSaveKey, json);
+        PlayerPrefs.Save();
+    }
+
+    public void LoadBackpack()
+    {
+        backpackItems.Clear();
+        if (PlayerPrefs.HasKey(BackpackSaveKey))
+        {
+            string json = PlayerPrefs.GetString(BackpackSaveKey);
+            BackpackSaveData data = JsonUtility.FromJson<BackpackSaveData>(json);
+            foreach (int id in data.itemIDs)
+            {
+                if (allItems != null && id >= 0 && id < allItems.Length && allItems[id] != null)
+                    backpackItems.Add(allItems[id]);
+            }
+        }
+    }
 }
