@@ -33,6 +33,13 @@ public class BackpackUIController : MonoBehaviour
     void Awake()
     {
         Instance = this;
+
+        if (backpackPanel == null)
+        {
+            Debug.LogError("BackpackUIController: backpackPanel is not assigned. Please assign it in the Inspector.");
+            return;
+        }
+
         backpackPanel.SetActive(false);
 
         var grid = slotsRoot.GetComponent<GridLayoutGroup>();
@@ -57,6 +64,8 @@ public class BackpackUIController : MonoBehaviour
 
     void Update()
     {
+        if (backpackPanel == null) return;
+
         if (Input.GetKeyDown(KeyCode.Q))
         {
             if (backpackPanel.activeSelf)
@@ -68,11 +77,13 @@ public class BackpackUIController : MonoBehaviour
 
     public void OpenBackpack()
     {
+        if (backpackPanel == null) return;
         backpackPanel.SetActive(true);
     }
 
     public void CloseBackpack()
     {
+        if (backpackPanel == null) return;
         backpackPanel.SetActive(false);
     }
 

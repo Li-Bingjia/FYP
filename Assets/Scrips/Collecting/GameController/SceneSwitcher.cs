@@ -17,6 +17,12 @@ public class SceneSwitcher : MonoBehaviour
 
     public void LoadSceneByName(string sceneName)
     {
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogError("SceneSwitcher: targetSceneName is not assigned. Please set it in the Inspector.");
+            return;
+        }
+
         // 切换前手动保存
         if (BackpackUIController.Instance != null)
             BackpackUIController.Instance.SaveBackpack();
